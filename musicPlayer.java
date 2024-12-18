@@ -11,7 +11,7 @@ class musicPlayer implements ActionListener {
     JFrame frame;
     JLabel songName;
     JButton selectSong;
-    JPanel playerPanel, controlPanel;
+    JPanel controlPanel;
     Icon playIcon, pauseIcon, resumeIcon, stopIcon;
     JButton playButton, pauseButton, resumeButton, stopButton;
 
@@ -24,6 +24,9 @@ class musicPlayer implements ActionListener {
     Player player;
     Thread playThread, resumeThread;
 
+    DefaultListModel<String> songListModel;
+    JList<String> songList;
+
     public musicPlayer() {
         initUI();
         addActionEvents();
@@ -33,46 +36,90 @@ class musicPlayer implements ActionListener {
 
     public void initUI() {
         songName = new JLabel("", SwingConstants.CENTER);
+        songName.setFont(new Font("Times New Roman", Font.BOLD, 14));
+        songName.setForeground(Color.WHITE);
+
         selectSong = new JButton("Select an MP3 song");
-        playerPanel = new JPanel();
+        selectSong.setBackground(Color.LIGHT_GRAY);
+        selectSong.setForeground(Color.BLACK);
+
         controlPanel = new JPanel();
-        playIcon = new ImageIcon("C:\Users\Tamanna\Desktop\musicPlayer\com\dataflair\music-player-icons");
-        pauseIcon = new ImageIcon("C:\Users\Tamanna\Desktop\musicPlayer\com\dataflair\music-player-icons");
-        resumeIcon = new ImageIcon("C:\Users\Tamanna\Desktop\musicPlayer\com\dataflair\music-player-icons");
-        stopIcon = new ImageIcon("C:\Users\Tamanna\Desktop\musicPlayer\com\dataflair\music-player-icons");
+        controlPanel.setBackground(Color.DARK_GRAY);
+
+        playIcon = new ImageIcon("C:/Users/Tamanna/Desktop/musicPlayer/com/dataflair/music-player-icons/play-button.png");
+        pauseIcon = new ImageIcon("C:/Users/Tamanna/Desktop/musicPlayer/com/dataflair/music-player-icons/pause-button.png");
+        resumeIcon = new ImageIcon("C:/Users/Tamanna/Desktop/musicPlayer/com/dataflair/music-player-icons/resume-button.png");
+        stopIcon = new ImageIcon("C:/Users/Tamanna/Desktop/musicPlayer/com/dataflair/music-player-icons/stop-button.png");
 
         playButton = new JButton(playIcon);
         pauseButton = new JButton(pauseIcon);
         resumeButton = new JButton(resumeIcon);
         stopButton = new JButton(stopIcon);
 
-        playerPanel.setLayout(new GridLayout(2, 1));
-        playerPanel.add(selectSong);
-        playerPanel.add(songName);
+        playButton.setBackground(Color.GREEN);
+        pauseButton.setBackground(Color.ORANGE);
+        resumeButton.setBackground(Color.CYAN);
+        stopButton.setBackground(Color.RED);
 
-        controlPanel.setLayout(new GridLayout(1, 4));
+        playButton.setFocusPainted(false);
+        pauseButton.setFocusPainted(false);
+        resumeButton.setFocusPainted(false);
+        stopButton.setFocusPainted(false);
+
+        controlPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 20, 10));
+
+        songListModel = new DefaultListModel<>();
+        songList = new JList<>(songListModel);
+        songList.setBackground(Color.WHITE);
+        songList.setForeground(Color.BLACK);
+
+        songList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                if (evt.getClickCount() == 2) {
+                    int index = songList.getSelectedIndex();
+                    if (index != -1) {
+                        filePath = songListModel.get(index);
+                        myFile = new File(filePath);
+                        filename = myFile.getName();
+                        frame.setTitle("🎶 Playing: " + filename);
+
+                        if (playThread.isAlive()) {
+                            playThread.interrupt();
+                        }
+                        playThread = new Thread(runnablePlay);
+                        playThread.start();
+                    }
+                }
+            }
+        });
+
+        JPanel backgroundPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.drawImage(new ImageIcon("C:/Users/Tamanna/Desktop/musicPlayer/com/dataflair/music-player-icons/background.png").getImage(), 0, 0, getWidth(), getHeight(), this);
+            }
+        };
+
+        backgroundPanel.setLayout(new BorderLayout());
+        backgroundPanel.add(songName, BorderLayout.NORTH);
+        backgroundPanel.add(new JScrollPane(songList), BorderLayout.CENTER);
+        backgroundPanel.add(selectSong, BorderLayout.SOUTH);
+
         controlPanel.add(playButton);
         controlPanel.add(pauseButton);
         controlPanel.add(resumeButton);
         controlPanel.add(stopButton);
 
-        playButton.setBackground(Color.WHITE);
-        pauseButton.setBackground(Color.WHITE);
-        resumeButton.setBackground(Color.WHITE);
-        stopButton.setBackground(Color.WHITE);
-
-        frame = new JFrame();
-        frame.setTitle("Let's play some music!!");
-
-        frame.add(playerPanel, BorderLayout.NORTH);
+        frame = new JFrame("Music Player!!");
+        frame.setLayout(new BorderLayout());
+        frame.add(backgroundPanel, BorderLayout.CENTER);
         frame.add(controlPanel, BorderLayout.SOUTH);
-
-        frame.setBackground(Color.white);
-        frame.setSize(400, 200);
+        frame.setSize(500, 300);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         frame.setResizable(false);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
     }
 
     public void addActionEvents() {
@@ -87,51 +134,71 @@ class musicPlayer implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (e.getSource().equals(selectSong)) {
             fileChooser = new JFileChooser();
-            fileChooser.setCurrentDirectory(new File(" ")); // Check this...
+            fileChooser.setCurrentDirectory(new File("C:/Users/Tamanna/Music"));
             fileChooser.setDialogTitle("Select an MP3 file");
             fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
             fileChooser.setFileFilter(new FileNameExtensionFilter("Mp3 files", "mp3"));
+
             if (fileChooser.showOpenDialog(selectSong) == JFileChooser.APPROVE_OPTION) {
                 myFile = fileChooser.getSelectedFile();
                 filename = fileChooser.getSelectedFile().getName();
                 filePath = fileChooser.getSelectedFile().getPath();
                 songName.setText("File Selected : " + filename);
+                songListModel.addElement(filePath);
             }
         }
-      
+
         if (e.getSource().equals(playButton)) {
-            if (filename!=null) {
+            if (filename != null) {
+                if (playThread.isAlive()) {
+                    playThread.interrupt();
+                }
+                playThread = new Thread(runnablePlay);
                 playThread.start();
-                songName.setText("Now playing : " + filename);
+                frame.setTitle("🎶 Playing: " + filename);
             }
-            else songName.setText("Select a song to play!");
+            else {
+                JOptionPane.showMessageDialog(frame, "No song selected! Please choose a song to play.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
-      
+    
         if (e.getSource().equals(pauseButton)) {
-            if (player!=null && filename!=null) {
+            if (player != null && filename != null) {
                 try {
                     pauseLength = fileInputStream.available();
                     player.close();
                 }
-                catch (IOException e2){
-                  e2.printStackTrace();
+                catch (IOException e2) {
+                    e2.printStackTrace();
                 } 
             }
         }
-      
-        if (e.getSource().equals(resumeButton)) {
-            if (filename != null) resumeThread.start();
-            else songName.setText("No File was selected!");
-        }
-      
-        if (e.getSource().equals(stopButton)) {
-            if (player!=null) {
-                player.close();
-                songName.setText("");
+    
+        if (e.getSource() == resumeButton) {
+            if (songList.getSelectedIndex() < songListModel.size() - 1) {
+                int index = songList.getSelectedIndex() + 1;
+                songList.setSelectedIndex(index);
+                filePath = songListModel.get(index);
+                myFile = new File(filePath);
+                filename = myFile.getName();
+                frame.setTitle("🎶 Playing: " + filename);
+
+                if (playThread.isAlive()) {
+                    playThread.interrupt();
+                }
+                playThread = new Thread(runnablePlay);
+                playThread.start();
             }
-
         }
-
+    
+        if (e.getSource() == stopButton) {
+            if (player != null) {
+                player.close(); 
+                playThread.interrupt();
+                songName.setText(""); 
+                frame.setTitle("Music Player");
+            }
+        }
     }
 
     Runnable runnablePlay = new Runnable() {
